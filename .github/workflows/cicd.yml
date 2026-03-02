@@ -1,0 +1,107 @@
+name: GH Actions CI/CD
+
+on:
+  push:
+    tags:
+      - '*'
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - 'main'
+
+permissions: { } # none
+
+concurrency:
+  group: "workflow = ${{ github.workflow }}, ref = ${{ github.event.ref }}, pr = ${{ github.event.pull_request.id }}"
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.repository != 'oracle-actions/setup-testpilot' }}
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ macos-latest, windows-latest, ubuntu-latest ]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check if Git tag exists
+        run: echo "HEAD_TAG=$(git tag --points-at HEAD)" >> $GITHUB_ENV
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '23'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+#          cache: 'maven'
+          native-image-job-reports: 'true'
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+      - name: Build with Maven
+        run: mvn -B -ntp verify -P native
+      - name: Create Linux TAR Gzip archive
+        if: success() && matrix.os == 'ubuntu-latest'
+        run: |
+          cd  ${{ github.workspace }}/target
+          tar -cvf ../setup-testpilot-linux-x86_64.tar setup-testpilot ../LICENSE.txt
+          cd ..
+          gzip ${{ github.workspace }}/setup-testpilot-linux-x86_64.tar
+      - name: Create MAC OS TAR Gzip archive
+        if: success() && matrix.os == 'macos-latest'
+        run: |
+          cd  ${{ github.workspace }}/target
+          tar -cvf ../setup-testpilot-macos-aarch64.tar setup-testpilot ../LICENSE.txt
+          cd ..
+          gzip ${{ github.workspace }}/setup-testpilot-macos-aarch64.tar
+      - name: Create Windows ZIP archive
+        if: success() && matrix.os == 'windows-latest'
+        run: Compress-Archive -Path ${{ github.workspace }}\target\setup-testpilot.exe,${{ github.workspace }}\LICENSE.txt -Destination ${{ github.workspace }}\setup-testpilot-windows_x86_64.zip
+#      - name: Upload native image
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: test-${{ runner.os }}
+#          path: ${{ github.workspace }}/target
+      - name: Releasing Linux...
+        uses: softprops/action-gh-release@v2
+        if: success() && matrix.os == 'ubuntu-latest' && startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ github.workspace }}/setup-testpilot-linux-x86_64.tar.gz
+          draft: false
+          prerelease: false
+          make_latest: true
+          name: Test ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+#          body_path: CHANGELOG.md
+          generate_release_notes: true
+      - name: Releasing MAC OS...
+        uses: softprops/action-gh-release@v2
+        if: success() && matrix.os == 'macos-latest' && startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ github.workspace }}/setup-testpilot-macos-aarch64.tar.gz
+          draft: false
+          prerelease: false
+          make_latest: true
+          name: Test ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          #          body_path: CHANGELOG.md
+          generate_release_notes: true
+      - name: Releasing Windows...
+        uses: softprops/action-gh-release@v2
+        if: success() && matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ github.workspace }}\setup-testpilot-windows_x86_64.zip
+          draft: false
+          prerelease: false
+          make_latest: true
+          name: Test ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          #          body_path: CHANGELOG.md
+          generate_release_notes: true

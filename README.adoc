@@ -1,0 +1,102 @@
+= Setup Test Pilot
+:linkattrs:
+:project-owner: oracle-actions
+:project-name:  setup-testpilot
+:project-tag:   v1.0.22
+
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+
+image:https://img.shields.io/github/v/release/{project-owner}/{project-name}["GitHub release", link="https://github.com/{project-owner}/{project-name}/releases"]
+
+Sets up link:https://testpilot.oracle.com/[Oracle Test Pilot for Third-Party Software].
+
+This GitHub Action helps the integration of Oracle Test Pilot for Third-Party Software within your GitHub Action workflows. It provides several `actions`:
+
+- `create`: used to request the provisioning of the OCI service to test (typically a database)
+- `delete`: used to de-provision the OCI service tested
+- `skip-testing`: used to check if this GitHub pull request (including all the associated commits) should not perform any non-regression test, for example if changes involve files or folders that do not contain source code. By using the output of this action, numerous GitHub Action workflows can see their runtime durations drastically reduced.
+
+Supported platforms:
+
+- Linux
+
+== Inputs
+
+Following inputs may be used as `step.with` keys:
+
+[%header,cols="<2,<,<,<3",width="100%"]
+|===
+| Name     | Required | Default         | Description
+| action  | Yes      | create | A valid action among: `create`, `delete`, `skip-testing`.
+| oci-service |          | autonomous-transaction-processing-serverless            | A valid Oracle Cloud Infrastructure service to be tested.
+Valid OCI service are: `autonomous-transaction-processing-serverless-19c`, `autonomous-transaction-processing-serverless-26ai`, `base-database-service-19c`, `base-database-service-21c`, `base-database-service-23ai`, and `base-database-service-26ai`.
+| user     |          |                 | The database username to be used for database creation. If multiple users (up to 10) are required then enter a comma-separated list of usernames (no space). Limit usernames to 118 chars maximum.  Accepted chars are: upper case letters, lower case letters, digits, colon, hyphen, and underscore.
+| prefix_list |  |  | A comma separated list of file(s) or folder(s) that if changed should not trigger any test (example: folder containing documentation).
+|===
+
+== Outputs
+
+Following outputs may be used as `step.if` or for `step.env` keys:
+
+[%header,cols="<2,<,<3",width="100%"]
+|===
+| Name              | Output of Action | Description
+| database_host              | create   | The hostname of the database(s).
+| database_service           | create   | The database service name of the database(s).
+| database_password          | create   | The database password of the database(s).
+| database_version           | create   | The version of the database(s).
+| connection_string_suffix | create   | The database connection string suffix (to be put after @), it can be used to build the full connection string.
+| skip_tests        | skip-testing      | 'yes' if tests can be skipped, 'no' otherwise.
+|===
+
+== Usage
+
+[source,yaml]
+[subs="attributes"]
+----
+jobs:
+  test:
+    steps:
+      # Look if committed files should trigger a build with tests
+      - id: build_guard
+        uses: {project-owner}/{project-name}@{project-tag}
+        with:
+          action: skip-testing
+          prefix_list: .github/workflows/ci.yml,README.md,LICENSE,.gitignore
+
+      # Create the database for testing only if tests must be run
+      - id: create_database
+        uses: {project-owner}/{project-name}@{project-tag}
+        if: steps.build_guard.outputs.skip_tests == 'no'
+        with:
+          oci-service: base-database-service-26ai
+          action: create
+          user: test
+
+      # Run the build and the tests against the database
+      - name: Run build script
+        if: steps.build_guard.outputs.skip_tests == 'no'
+        env:
+          RUNID: ${{ github.run_number }}
+          DATABASE_HOST: ${{ steps.create_database.outputs.database_host }}
+          DATABASE_SERVICE: ${{ steps.create_database.outputs.database_service }}
+          DATABASE_PASSWORD: ${{ steps.create_database.outputs.database_password }}
+        run: ./build.sh
+        shell: bash
+
+      # Delete the database for testing only if tests must be run
+      - uses: {project-owner}/{project-name}@{project-tag}
+        if: steps.build_guard.outputs.skip_tests == 'no'
+        with:
+          oci-service: base-database-service-26ai
+          action: delete
+          user: test
+
+----
+
