@@ -134,7 +134,7 @@ jobs:
           ASSET_NAME=$(basename "$ASSET_PATH")
 
           log "Fetching tags..."
-          git config --global url."https://${{ github.token }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
           git fetch --tags --force
 
           PREVIOUS_TAG=$(git tag --sort=-creatordate | grep -v "^$TAG$" | head -n1 || true)
