@@ -1,6 +1,6 @@
 name: Setup-Oracle-Test-Pilot
 
-description: 'Setup Oracle Test Pilot helps the integration of Oracle Test Pilot for Third Party Software within your GitHub Action workflows by allowing provisioning and de-provisioning of Oracle Cloud Infrastructure services.'
+description: 'Setup Test Pilot helps integrating Oracle Test Pilot for Third Party Software within your GitHub Action workflows.'
 
 branding:
   icon: 'check-circle'
