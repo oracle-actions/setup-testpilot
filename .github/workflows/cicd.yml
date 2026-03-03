@@ -20,7 +20,7 @@ jobs:
   build:
     permissions:
       contents: write
-    name: Test on ${{ matrix.os }}
+    name: Building Oracle Setup Test Pilot GitHub Action on ${{ matrix.os }}...
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -134,6 +134,7 @@ jobs:
           ASSET_NAME=$(basename "$ASSET_PATH")
 
           log "Fetching tags..."
+          git config --global url."https://${{ github.token }}@github.com/".insteadOf "https://github.com/"
           git fetch --tags --force
 
           PREVIOUS_TAG=$(git tag --sort=-creatordate | grep -v "^$TAG$" | head -n1 || true)
