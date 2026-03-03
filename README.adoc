@@ -100,3 +100,16 @@ jobs:
 
 ----
 
+== Contributing
+
+This project welcomes contributions from the community. Please link:./CONTRIBUTING.md[review our contribution guide].
+
+== Security
+
+Please consult the link:./SECURITY.md[security guide] for our responsible security vulnerability disclosure process.
+
+== License
+
+Copyright (c) 2026 Oracle and/or its affiliates.
+
+Released under the Universal Permissive License v1.0 as shown at link:https://oss.oracle.com/licenses/upl/[].
