@@ -29,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0   # required for full tag history
           persist-credentials: false
       - name: Check if Git tag exists
         run: echo "HEAD_TAG=$(git tag --points-at HEAD)" >> $GITHUB_ENV
@@ -69,39 +70,235 @@ jobs:
 #        with:
 #          name: test-${{ runner.os }}
 #          path: ${{ github.workspace }}/target
+
+#      - name: Releasing Linux...
+#        uses: softprops/action-gh-release@v2
+#        if: success() && matrix.os == 'ubuntu-latest' && startsWith(github.ref, 'refs/tags/')
+#        with:
+#          files: ${{ github.workspace }}/setup-testpilot-linux-x86_64.tar.gz
+#          draft: false
+#          prerelease: false
+#          make_latest: true
+#          name: Test ${{ github.ref_name }}
+#          tag_name: ${{ github.ref_name }}
+##          body_path: CHANGELOG.md
+#          generate_release_notes: true
+
+#      - name: Releasing MAC OS...
+#        uses: softprops/action-gh-release@v2
+#        if: success() && matrix.os == 'macos-latest' && startsWith(github.ref, 'refs/tags/')
+#        with:
+#          files: ${{ github.workspace }}/setup-testpilot-macos-aarch64.tar.gz
+#          draft: false
+#          prerelease: false
+#          make_latest: true
+#          name: Test ${{ github.ref_name }}
+#          tag_name: ${{ github.ref_name }}
+#          #          body_path: CHANGELOG.md
+#          generate_release_notes: true
+
+#      - name: Releasing Windows...
+#        uses: softprops/action-gh-release@v2
+#        if: success() && matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+#        with:
+#          files: ${{ github.workspace }}\setup-testpilot-windows_x86_64.zip
+#          draft: false
+#          prerelease: false
+#          make_latest: true
+#          name: Test ${{ github.ref_name }}
+#          tag_name: ${{ github.ref_name }}
+#          #          body_path: CHANGELOG.md
+#          generate_release_notes: true
+
       - name: Releasing Linux...
-        uses: softprops/action-gh-release@v2
         if: success() && matrix.os == 'ubuntu-latest' && startsWith(github.ref, 'refs/tags/')
-        with:
-          files: ${{ github.workspace }}/setup-testpilot-linux-x86_64.tar.gz
-          draft: false
-          prerelease: false
-          make_latest: true
-          name: Test ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-#          body_path: CHANGELOG.md
-          generate_release_notes: true
-      - name: Releasing MAC OS...
-        uses: softprops/action-gh-release@v2
-        if: success() && matrix.os == 'macos-latest' && startsWith(github.ref, 'refs/tags/')
-        with:
-          files: ${{ github.workspace }}/setup-testpilot-macos-aarch64.tar.gz
-          draft: false
-          prerelease: false
-          make_latest: true
-          name: Test ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          #          body_path: CHANGELOG.md
-          generate_release_notes: true
-      - name: Releasing Windows...
-        uses: softprops/action-gh-release@v2
-        if: success() && matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        with:
-          files: ${{ github.workspace }}\setup-testpilot-windows_x86_64.zip
-          draft: false
-          prerelease: false
-          make_latest: true
-          name: Test ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          #          body_path: CHANGELOG.md
-          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          ASSET_PATH: ${{ github.workspace }}/setup-testpilot-linux-x86_64.tar.gz
+        run: |
+          set -Eeuo pipefail
+
+          API="https://api.github.com"
+          AUTH_HEADER="Authorization: Bearer $GITHUB_TOKEN"
+          ACCEPT_HEADER="Accept: application/vnd.github+json"
+
+          log() { echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] $*"; }
+          require() { command -v "$1" >/dev/null || { echo "Missing $1"; exit 1; }; }
+
+          require curl
+          require jq
+          require git
+
+          ASSET_NAME=$(basename "$ASSET_PATH")
+
+          log "Fetching tags..."
+          git fetch --tags --force
+
+          PREVIOUS_TAG=$(git tag --sort=-creatordate | grep -v "^$TAG$" | head -n1 || true)
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            RANGE="$PREVIOUS_TAG..$TAG"
+            log "Previous tag: $PREVIOUS_TAG"
+          else
+            RANGE="$TAG"
+            log "No previous tag found."
+          fi
+
+          ####################################################################
+          # 1️⃣ Try GitHub Automatic Release Notes (Latest Official Method)
+          ####################################################################
+          log "Generating GitHub automatic release notes..."
+
+          AUTO_NOTES_RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -X POST \
+            -H "$AUTH_HEADER" \
+            -H "$ACCEPT_HEADER" \
+            "$API/repos/$REPO/releases/generate-notes" \
+            -d "$(jq -n \
+                  --arg tag_name "$TAG" \
+                  --arg target_commitish "$TAG" \
+                  --arg previous_tag_name "${PREVIOUS_TAG:-}" \
+                  '{tag_name:$tag_name,target_commitish:$target_commitish,previous_tag_name:$previous_tag_name}')")
+
+          AUTO_BODY=$(echo "$AUTO_NOTES_RESPONSE" | sed '$d')
+          AUTO_STATUS=$(echo "$AUTO_NOTES_RESPONSE" | tail -n1)
+
+          if [ "$AUTO_STATUS" = "200" ]; then
+            RELEASE_BODY=$(echo "$AUTO_BODY" | jq -r .body)
+            log "Using GitHub-generated release notes."
+          else
+            ################################################################
+            # 2️⃣ Fallback: Structured Conventional Commit Changelog
+            ################################################################
+            log "Falling back to semantic commit parsing..."
+
+            COMMITS=$(git log $RANGE --pretty=format:'%H%x09%s%x09%b' --no-merges || true)
+
+            section() {
+              echo "$COMMITS" | awk -F '\t' "$1"
+            }
+
+            FEATURES=$(section '$2 ~ /^feat(\(.+\))?:/')
+            FIXES=$(section '$2 ~ /^fix(\(.+\))?:/')
+            PERF=$(section '$2 ~ /^perf(\(.+\))?:/')
+            REFACTOR=$(section '$2 ~ /^refactor(\(.+\))?:/')
+            DOCS=$(section '$2 ~ /^docs(\(.+\))?:/')
+            TEST=$(section '$2 ~ /^test(\(.+\))?:/')
+            BREAKING=$(echo "$COMMITS" | awk -F '\t' '$2 ~ /!:/ || $3 ~ /BREAKING CHANGE/')
+
+            format_section() {
+              if [ -n "$1" ]; then
+                echo "$1" | while IFS=$'\t' read -r hash subject body; do
+                  SHORT=$(git rev-parse --short "$hash")
+                  PR=$(echo "$subject" | grep -oE '#[0-9]+' || true)
+                  echo "- ${subject} (${SHORT}) ${PR}"
+                done
+              fi
+            }
+
+            RELEASE_BODY="## Changes"$'\n'
+
+            if [ -n "$BREAKING" ]; then
+              RELEASE_BODY+=$'\n### 💥 Breaking Changes\n'
+              RELEASE_BODY+="$(format_section "$BREAKING")"$'\n'
+            fi
+            if [ -n "$FEATURES" ]; then
+              RELEASE_BODY+=$'\n### ✨ Features\n'
+              RELEASE_BODY+="$(format_section "$FEATURES")"$'\n'
+            fi
+            if [ -n "$FIXES" ]; then
+              RELEASE_BODY+=$'\n### 🐛 Fixes\n'
+              RELEASE_BODY+="$(format_section "$FIXES")"$'\n'
+            fi
+            if [ -n "$PERF" ]; then
+              RELEASE_BODY+=$'\n### ⚡ Performance\n'
+              RELEASE_BODY+="$(format_section "$PERF")"$'\n'
+            fi
+            if [ -n "$REFACTOR" ]; then
+              RELEASE_BODY+=$'\n### 🧹 Refactor\n'
+              RELEASE_BODY+="$(format_section "$REFACTOR")"$'\n'
+            fi
+            if [ -n "$DOCS" ]; then
+              RELEASE_BODY+=$'\n### 📚 Documentation\n'
+              RELEASE_BODY+="$(format_section "$DOCS")"$'\n'
+            fi
+            if [ -n "$TEST" ]; then
+              RELEASE_BODY+=$'\n### 🧪 Tests\n'
+              RELEASE_BODY+="$(format_section "$TEST")"$'\n'
+            fi
+
+            [ -z "$RELEASE_BODY" ] && RELEASE_BODY="No changes."
+          fi
+
+          ####################################################################
+          # 3️⃣ Create or Update Release (Idempotent)
+          ####################################################################
+          log "Checking if release exists..."
+
+          RELEASE_RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -H "$AUTH_HEADER" \
+            -H "$ACCEPT_HEADER" \
+            "$API/repos/$REPO/releases/tags/$TAG")
+
+          HTTP_BODY=$(echo "$RELEASE_RESPONSE" | sed '$d')
+          HTTP_STATUS=$(echo "$RELEASE_RESPONSE" | tail -n1)
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            RELEASE_ID=$(echo "$HTTP_BODY" | jq -r .id)
+            UPLOAD_URL=$(echo "$HTTP_BODY" | jq -r .upload_url | sed 's/{?name,label}//')
+
+            curl -sS -X PATCH \
+              -H "$AUTH_HEADER" \
+              -H "$ACCEPT_HEADER" \
+              "$API/repos/$REPO/releases/$RELEASE_ID" \
+              -d "$(jq -n --arg body "$RELEASE_BODY" '{body:$body}')" \
+              >/dev/null
+
+          elif [ "$HTTP_STATUS" = "404" ]; then
+            CREATE_RESPONSE=$(curl -sS -w "\n%{http_code}" \
+              -X POST \
+              -H "$AUTH_HEADER" \
+              -H "$ACCEPT_HEADER" \
+              "$API/repos/$REPO/releases" \
+              -d "$(jq -n \
+                    --arg tag "$TAG" \
+                    --arg name "Release $TAG" \
+                    --arg body "$RELEASE_BODY" \
+                    '{tag_name:$tag,name:$name,body:$body,draft:false,prerelease:false}')")
+
+            CREATE_BODY=$(echo "$CREATE_RESPONSE" | sed '$d')
+            RELEASE_ID=$(echo "$CREATE_BODY" | jq -r .id)
+            UPLOAD_URL=$(echo "$CREATE_BODY" | jq -r .upload_url | sed 's/{?name,label}//')
+          else
+            echo "Unexpected response $HTTP_STATUS"
+            exit 1
+          fi
+
+          ####################################################################
+          # 4️⃣ Replace Asset If Exists
+          ####################################################################
+          ASSETS=$(curl -sS \
+            -H "$AUTH_HEADER" \
+            -H "$ACCEPT_HEADER" \
+            "$API/repos/$REPO/releases/$RELEASE_ID/assets")
+
+          EXISTING_ID=$(echo "$ASSETS" | jq -r ".[] | select(.name==\"$ASSET_NAME\") | .id")
+
+          if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
+            curl -sS -X DELETE \
+              -H "$AUTH_HEADER" \
+              -H "$ACCEPT_HEADER" \
+              "$API/repos/$REPO/releases/assets/$EXISTING_ID" \
+              >/dev/null
+          fi
+
+          curl -sS -X POST \
+            -H "$AUTH_HEADER" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"$ASSET_PATH" \
+            "$UPLOAD_URL?name=$ASSET_NAME" \
+            >/dev/null
+
+          log "Release completed successfully."
