@@ -6,7 +6,7 @@
 
     <groupId>com.oracle.testpilot</groupId>
     <artifactId>testpilot-services</artifactId>
-    <version>1.0.22</version>
+    <version>1.0.23</version>
     <name>Oracle Test Pilot actions</name>
     <description>Actions offered by Oracle Test Pilot.</description>
 

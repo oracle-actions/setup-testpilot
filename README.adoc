@@ -2,7 +2,7 @@
 :linkattrs:
 :project-owner: oracle-actions
 :project-name:  setup-testpilot
-:project-tag:   v1.0.22
+:project-tag:   v1.0.23
 
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -34,9 +34,9 @@ Following inputs may be used as `step.with` keys:
 |===
 | Name     | Required | Default         | Description
 | action  | Yes      | create | A valid action among: `create`, `delete`, `skip-testing`.
-| oci-service |          | autonomous-transaction-processing-serverless            | A valid Oracle Cloud Infrastructure service to be tested.
+| oci-service |          | autonomous-transaction-processing-serverless-26ai            | A valid Oracle Cloud Infrastructure service to be tested.
 Valid OCI service are: `autonomous-transaction-processing-serverless-19c`, `autonomous-transaction-processing-serverless-26ai`, `base-database-service-19c`, `base-database-service-21c`, `base-database-service-23ai`, and `base-database-service-26ai`.
-| user     |          |                 | The database username to be used for database creation. If multiple users (up to 10) are required then enter a comma-separated list of usernames (no space). Limit usernames to 118 chars maximum.  Accepted chars are: upper case letters, lower case letters, digits, colon, hyphen, and underscore.
+| user     |          |                 | The database username to be used for database creation. If multiple users (up to 10) are required then enter a comma-separated list of usernames (no space). Limit usernames to 118 chars maximum.  Accepted chars are: upper case letters, lower case letters, digits, colon, hyphen, underscore, and dot.
 | prefix_list |  |  | A comma separated list of file(s) or folder(s) that if changed should not trigger any test (example: folder containing documentation).
 |===
 
