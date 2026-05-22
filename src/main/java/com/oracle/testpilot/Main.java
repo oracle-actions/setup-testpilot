@@ -23,7 +23,7 @@ public class Main {
 		System.setProperty("java.net.useSystemProxies", "false");
 	}
 
-	public static final String VERSION="1.0.23";
+	public static final String VERSION="1.0.24";
 
 	public static void main(final String[] args) {
 		int exitStatus = 0;
@@ -53,7 +53,7 @@ public class Main {
 			}
 
 			//System.out.println("Error: " + te.getMessage());
-			te.printStackTrace();
+			te.printStackTrace(System.err);
 		}
 
 		System.exit(exitStatus);

@@ -6,17 +6,17 @@
 
     <groupId>com.oracle.testpilot</groupId>
     <artifactId>testpilot-services</artifactId>
-    <version>1.0.23</version>
+    <version>1.0.24</version>
     <name>Oracle Test Pilot actions</name>
-    <description>Actions offered by Oracle Test Pilot.</description>
+    <description>Actions provided by Oracle Test Pilot.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.8.1</junit.version>
         <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
-        <maven.compiler.source>23</maven.compiler.source>
-        <maven.compiler.target>23</maven.compiler.target>
-        <maven.compiler.release>23</maven.compiler.release>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <maven.compiler.release>25</maven.compiler.release>
         <maven.plugin.validation>VERBOSE</maven.plugin.validation>
         <native.maven.plugin.version>0.10.3</native.maven.plugin.version>
         <imageName>setup-testpilot</imageName>
@@ -81,7 +81,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.15.0</version>
                 <configuration>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.source}</target>
