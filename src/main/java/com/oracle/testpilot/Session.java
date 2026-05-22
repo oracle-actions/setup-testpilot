@@ -9,13 +9,7 @@ package com.oracle.testpilot;
 import com.oracle.testpilot.exception.TestPilotException;
 import com.oracle.testpilot.json.JSON;
 import com.oracle.testpilot.json.JSONArray;
-import com.oracle.testpilot.model.Action;
-import com.oracle.testpilot.model.Database;
-import com.oracle.testpilot.model.GitHubCommittedFiles;
-import com.oracle.testpilot.model.GitHubFilename;
-import com.oracle.testpilot.model.GitHubPullRequestCommits;
-import com.oracle.testpilot.model.OAuthToken;
-import com.oracle.testpilot.model.TechnologyType;
+import com.oracle.testpilot.model.*;
 
 import java.io.BufferedOutputStream;
 import java.io.FileNotFoundException;
@@ -60,6 +54,8 @@ public class Session {
 
 	private String users;
 	private String technologyType;
+
+	private ConnectionStringFormat connectionStringFormat;
 
 	private String prefixList;
 	private String owner;
@@ -165,6 +161,21 @@ public class Session {
 					}
 					break;
 
+				case "--connection-string-format":
+					if (i + 1 < args.length) {
+						final String temp = args[++i];
+
+						if("tns".equalsIgnoreCase(temp)) {
+							connectionStringFormat = ConnectionStringFormat.TNS;
+						} else {
+							connectionStringFormat = ConnectionStringFormat.EASY_CONNECT;
+						}
+					}
+					else {
+						throw new TestPilotException(CONNECTION_STRING_FORMAT_MISSING_PARAMETER, new IllegalArgumentException("Missing value for --connection-string-format parameter"));
+					}
+					break;
+
 				case "--skip-testing":
 					action = SKIP_TESTING;
 					break;
@@ -216,15 +227,16 @@ public class Session {
 	private void displayUsage() {
 		System.out.println("""
 				Usage: setup-testpilot <action> <options...>
-								
+				
 				Action:
 				--create: to provision the requested Oracle Cloud Infrastructure service to test
 				    Options:
-				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-23ai)
+				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-26ai)
 				    --user <user>              user name to be used (if several, then comma separated list without any space)
+				    --connection-string-format requested connection string format (easy-connect*, or tns)
 				--delete: to de-provision the Oracle Cloud Infrastructure service
 				    Options:
-				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-23ai)
+				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-26ai)
 				    --user <user>              user name to be used (if several, then comma separated list without any space)
 				--skip-testing
 				    Options:
@@ -310,7 +322,10 @@ public class Session {
 								Database database = new JSON<>(Database.class).parse(jsonInformation);
 								database = new JSON<>(Database.class).parse(database.getDatabase());
 
-								final String connectionString = String.format("(description=(retry_count=5)(retry_delay=1)(address=(protocol=tcps)(port=1521)(host=%s.oraclecloud.com))(connect_data=(USE_TCP_FAST_OPEN=ON)(service_name=%s_tp.adb.oraclecloud.com))(security=(ssl_server_dn_match=no)))", database.getHost(), database.getService());
+								final String connectionString = connectionStringFormat == ConnectionStringFormat.TNS ?
+										String.format("(description=(retry_count=5)(retry_delay=1)(address=(protocol=tcps)(port=1521)(host=%s.oraclecloud.com))(connect_data=(USE_TCP_FAST_OPEN=ON)(service_name=%s_tp.adb.oraclecloud.com))(security=(ssl_server_dn_match=no)))", database.getHost(), database.getService())
+										:
+										String.format("tcps://%s.oraclecloud.com:1521/%s_tp.adb.oraclecloud.com?retry_count=5&retry_delay=1&oracle.net.useTcpFastOpen=true&ssl_server_dn_match=false", database.getHost(), database.getService());
 
 								writeDatabaseInformationToGitHubOutput(database, connectionString);
 							}
@@ -322,7 +337,10 @@ public class Session {
 								Database database = new JSON<>(Database.class).parse(jsonInformation);
 								database = new JSON<>(Database.class).parse(database.getDatabase());
 
-								final String connectionString = String.format("%s:1521/%s", database.getHost(), database.getService());
+								final String connectionString = connectionStringFormat == ConnectionStringFormat.TNS ?
+										String.format("(description=(address=(protocol=tcp)(port=1521)(host=%s))(connect_data=(service_name=%s)))", database.getHost(), database.getService())
+										:
+										String.format("%s:1521/%s", database.getHost(), database.getService());
 
 								writeDatabaseInformationToGitHubOutput(database, connectionString);
 							}
@@ -520,7 +538,7 @@ public class Session {
 		return sb.toString();
 	}
 
-	private String getInternalTechnologyType(String technologyType) {
+	private String getInternalTechnologyType(final String technologyType) {
 		return switch (technologyType) {
 			case "autonomous-transaction-processing-serverless-19c" -> TechnologyType.AUTONOMOUS19C;
 			case "autonomous-transaction-processing-serverless", "autonomous-transaction-processing-serverless-26ai" -> TechnologyType.AUTONOMOUS26AI;
@@ -528,7 +546,7 @@ public class Session {
 			case "base-database-service-21c" -> TechnologyType.DB21C;
 			case "base-database-service-23ai" -> TechnologyType.DB23AI;
 			case "base-database-service-26ai" -> TechnologyType.DB26AI;
-			default -> null;
+			default -> throw new TestPilotException(CREATE_DATABASE_MISSING_DB_TYPE);
 		};
 	}
 

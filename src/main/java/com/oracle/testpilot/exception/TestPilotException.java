@@ -21,7 +21,7 @@ public class TestPilotException extends RuntimeException {
 	public static final int RETRIEVE_OAUTH2_TOKEN = 8;
 	public static final int TOO_MANY_USERS_PROVIDED = 9;
 	public static final int CREATE_DATABASE_MISSING_USER_NAME = 10;
-	public static final int CREATE_DATABASE_MISSING_PASSWORD = 11;
+	public static final int CONNECTION_STRING_FORMAT_MISSING_PARAMETER = 11;
 	public static final int CREATE_DATABASE_MISSING_DB_TYPE = 12;
 	public static final int SKIP_TESTING_MISSING_OWNER = 13;
 	public static final int SKIP_TESTING_MISSING_REPOSITORY = 14;
