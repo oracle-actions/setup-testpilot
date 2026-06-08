@@ -279,27 +279,28 @@ public class Session {
 		try {
 			final String type = getInternalTechnologyType(technologyType);
 
-			setOAuth2Token();
-
 			final String uri = String.format("https://%s/ords/testpilot/resources/create", apiHOST);
 
-			final HttpRequest request = HttpRequest.newBuilder()
-					.uri(new URI(uri))
-					.headers("Accept", "application/json",
-							"Content-Type", "application/json",
-							"Pragma", "no-cache",
-							"Cache-Control", "no-store",
-							"User-Agent", "setup-testpilot/" + Main.VERSION,
-							"Authorization", "Bearer " + token)
-					.POST(HttpRequest.BodyPublishers.ofString(
-							String.format("{\"runID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
-										  runID, type, buildUserList(users,true))
-					))
-					.build();
-
 			boolean done = false;
+			int retryCount = 5;
 
 			do {
+				setOAuth2Token();
+
+				final HttpRequest request = HttpRequest.newBuilder()
+						.uri(new URI(uri))
+						.headers("Accept", "application/json",
+								"Content-Type", "application/json",
+								"Pragma", "no-cache",
+								"Cache-Control", "no-store",
+								"User-Agent", "setup-testpilot/" + Main.VERSION,
+								"Authorization", "Bearer " + token)
+						.POST(HttpRequest.BodyPublishers.ofString(
+								String.format("{\"runID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
+										runID, type, buildUserList(users,true))
+						))
+						.build();
+
 				try (HttpClient client = HttpClient
 						.newBuilder()
 						.connectTimeout(Duration.ofSeconds(ONE_MINUTE_TIMEOUT))
@@ -357,7 +358,32 @@ public class Session {
 						// too many requests (rate limiting)
 						Thread.sleep(10 * 1000L);
 					}
+					else if(response.statusCode() == 504) {
+						// Gateway time-out (load balancer)
+						// retry 5 times with 1 minute time-out each time
+						retryCount--;
+						if(retryCount == 0) {
+							if(githubOutput != null) {
+								try (PrintWriter out = new PrintWriter(new BufferedOutputStream(new FileOutputStream(githubOutput, true)))) {
+									out.println("create=ko");
+								}
+							}
+
+							throw new TestPilotException(CREATE_DATABASE_REST_ENDPOINT_ISSUE,
+									new IllegalStateException("HTTP/S status code: " + response.statusCode(),
+											new IllegalStateException(response.body())));
+						} else {
+							System.out.printf("Gateway time-out, retrying in 10 seconds...%n");
+							Thread.sleep(10 * 1000L);
+						}
+					}
 					else {
+						if(githubOutput != null) {
+							try (PrintWriter out = new PrintWriter(new BufferedOutputStream(new FileOutputStream(githubOutput, true)))) {
+								out.println("create=ko");
+							}
+						}
+
 						throw new TestPilotException(CREATE_DATABASE_REST_ENDPOINT_ISSUE,
 								new IllegalStateException("HTTP/S status code: " + response.statusCode(),
 										new IllegalStateException(response.body())));
@@ -366,9 +392,23 @@ public class Session {
 			} while(!done);
 		}
 		catch (URISyntaxException e) {
+			if (githubOutput != null) {
+				try (PrintWriter out = new PrintWriter(new BufferedOutputStream(new FileOutputStream(githubOutput, true)))) {
+					out.println("delete=ko");
+				}
+				catch(IOException ignored) {}
+			}
+
 			throw new TestPilotException(WRONG_MAIN_CONTROLLER_URI, e);
 		}
 		catch (IOException | InterruptedException e) {
+			if (githubOutput != null) {
+				try (PrintWriter out = new PrintWriter(new BufferedOutputStream(new FileOutputStream(githubOutput, true)))) {
+					out.println("delete=ko");
+				}
+				catch(IOException ignored) {}
+			}
+
 			throw new TestPilotException(WRONG_MAIN_CONTROLLER_REST_CALL, e);
 		}
 	}
@@ -460,6 +500,12 @@ public class Session {
 						}
 					}
 					else {
+						if (githubOutput != null) {
+							try (PrintWriter out = new PrintWriter(new BufferedOutputStream(new FileOutputStream(githubOutput, true)))) {
+								out.println("delete=ko");
+							}
+						}
+
 						throw new TestPilotException(DROP_DATABASE_REST_ENDPOINT_ISSUE,
 								new IllegalStateException("HTTP/S status code: " + response.statusCode()));
 					}
@@ -467,9 +513,23 @@ public class Session {
 			} while(!done);
 		}
 		catch (URISyntaxException e) {
+			if(githubOutput != null) {
+				try (PrintWriter out = new PrintWriter(new BufferedOutputStream(new FileOutputStream(githubOutput, true)))) {
+					out.println("delete=ko");
+				}
+				catch(IOException ignored) {}
+			}
+
 			throw new TestPilotException(WRONG_MAIN_CONTROLLER_URI, e);
 		}
 		catch (IOException | InterruptedException e) {
+			if(githubOutput != null) {
+				try (PrintWriter out = new PrintWriter(new BufferedOutputStream(new FileOutputStream(githubOutput, true)))) {
+					out.println("delete=ko");
+				}
+				catch(IOException ignored) {}
+			}
+
 			throw new TestPilotException(WRONG_MAIN_CONTROLLER_REST_CALL, e);
 		}
 	}
