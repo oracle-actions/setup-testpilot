@@ -48,6 +48,7 @@ public class Session {
 	private final String githubOutput;
 
 	private final String runID;
+	private final String jobID;
 	private final String apiHOST;
 	private String token;
 	private final String clientId;
@@ -80,6 +81,14 @@ public class Session {
 		// number does not change if you re-run the workflow run.
 		// see https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#github-context
 		runID = System.getenv("RUNID");
+		// ---------------------------------------------------------------------------------------------------------------------
+		// JOBID:
+		// The check run ID of the current job.
+		// env:
+		//   JOBID: ${{ job.check_run_id }}
+		// job.check_run_id: The check run ID of the current job.
+		// see https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#job-context
+		jobID = System.getenv("JOBID");
 		// ---------------------------------------------------------------------------------------------------------------------
 		// API_HOST:
 		// URL targeting the private internal REST API endpoints to create and delete a user schema to be used to
@@ -296,8 +305,8 @@ public class Session {
 								"User-Agent", "setup-testpilot/" + Main.VERSION,
 								"Authorization", "Bearer " + token)
 						.POST(HttpRequest.BodyPublishers.ofString(
-								String.format("{\"runID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
-										runID, type, buildUserList(users,true))
+								String.format("{\"runID\":\"%s\",\"jobID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
+										runID, jobID, type, buildUserList(users,true))
 						))
 						.build();
 
@@ -472,8 +481,8 @@ public class Session {
 								"User-Agent", "setup-testpilot/" + Main.VERSION,
 								"Authorization", "Bearer " + token)
 						.POST(HttpRequest.BodyPublishers.ofString(
-								String.format("{\"runID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
-										runID, type, buildUserList(users,false))
+								String.format("{\"runID\":\"%s\",\"jobID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
+										runID, jobID, type, buildUserList(users,false))
 						))
 						.build();
 

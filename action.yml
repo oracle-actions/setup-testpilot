@@ -76,6 +76,7 @@ runs:
       shell: bash -leo pipefail {0}
       env:
         RUNID: ${{ github.run_number }}
+        JOBID: ${{ job.check_run_id }}
       run: |
         ${GITHUB_ACTION_PATH}/setup-testpilot --${{ inputs.action }} \
         --user "${{ inputs.user }}" --oci-service "${{ inputs.oci-service }}" --connection-string-format "${{ inputs.connection-string-format }}"
