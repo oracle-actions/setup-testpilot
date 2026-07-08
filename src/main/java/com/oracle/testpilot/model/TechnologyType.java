@@ -15,7 +15,6 @@ public class TechnologyType {
 	public static final String AUTONOMOUS19C = "atps19c";
 	public static final String DB19C = "db19c";
 	public static final String DB21C = "db21c";
-	public static final String DB23AI = "db23ai";
 	public static final String DB26AI = "db26ai";
 	public static final String DB26AIRAC = "db26airac";
 }
