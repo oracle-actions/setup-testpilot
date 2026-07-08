@@ -48,6 +48,7 @@ public class Session {
 	private final String githubOutput;
 
 	private final String runID;
+	private final String jobID;
 	private final String apiHOST;
 	private String token;
 	private final String clientId;
@@ -80,6 +81,14 @@ public class Session {
 		// number does not change if you re-run the workflow run.
 		// see https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#github-context
 		runID = System.getenv("RUNID");
+		// ---------------------------------------------------------------------------------------------------------------------
+		// JOBID:
+		// The check run ID of the current job.
+		// env:
+		//   JOBID: ${{ job.check_run_id }}
+		// job.check_run_id: The check run ID of the current job.
+		// see https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#job-context
+		jobID = System.getenv("JOBID");
 		// ---------------------------------------------------------------------------------------------------------------------
 		// API_HOST:
 		// URL targeting the private internal REST API endpoints to create and delete a user schema to be used to
@@ -296,8 +305,8 @@ public class Session {
 								"User-Agent", "setup-testpilot/" + Main.VERSION,
 								"Authorization", "Bearer " + token)
 						.POST(HttpRequest.BodyPublishers.ofString(
-								String.format("{\"runID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
-										runID, type, buildUserList(users,true))
+								String.format("{\"runID\":\"%s\",\"jobID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
+										runID, jobID, type, buildUserList(users,true))
 						))
 						.build();
 
@@ -339,9 +348,22 @@ public class Session {
 								database = new JSON<>(Database.class).parse(database.getDatabase());
 
 								final String connectionString = connectionStringFormat == ConnectionStringFormat.TNS ?
-										String.format("(description=(address=(protocol=tcp)(port=1521)(host=%s))(connect_data=(service_name=%s)))", database.getHost(), database.getService())
+										String.format("(description=(retry_count=3)(retry_delay=1)(address=(protocol=tcp)(port=1521)(host=%s))(connect_data=(service_name=%s)))", database.getHost(), database.getService())
 										:
-										String.format("%s:1521/%s", database.getHost(), database.getService());
+										String.format("%s:1521/%s?retry_count=3&retry_delay=1", database.getHost(), database.getService());
+
+								writeDatabaseInformationToGitHubOutput(database, connectionString);
+							}
+							break;
+							case TechnologyType.DB26AIRAC: {
+								Database database = new JSON<>(Database.class).parse(jsonInformation);
+								database = new JSON<>(Database.class).parse(database.getDatabase());
+
+								// using scan listener as the host
+								final String connectionString = connectionStringFormat == ConnectionStringFormat.TNS ?
+										String.format("(description=(connect_timeout=5)(transport_connect_timeout=3)(retry_count=3)(retry_delay=1)(address_list=(load_balance=on)(address=(protocol=tcp)(host=%s)(port=1521)))(connect_data=(service_name=%s)))", database.getHost(), database.getService())
+										:
+										String.format("%s:1521/%s?retry_count=3&retry_delay=1", database.getHost(), database.getService());
 
 								writeDatabaseInformationToGitHubOutput(database, connectionString);
 							}
@@ -459,8 +481,8 @@ public class Session {
 								"User-Agent", "setup-testpilot/" + Main.VERSION,
 								"Authorization", "Bearer " + token)
 						.POST(HttpRequest.BodyPublishers.ofString(
-								String.format("{\"runID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
-										runID, type, buildUserList(users,false))
+								String.format("{\"runID\":\"%s\",\"jobID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
+										runID, jobID, type, buildUserList(users,false))
 						))
 						.build();
 
@@ -606,6 +628,7 @@ public class Session {
 			case "base-database-service-21c" -> TechnologyType.DB21C;
 			case "base-database-service-23ai" -> TechnologyType.DB23AI;
 			case "base-database-service-26ai" -> TechnologyType.DB26AI;
+			case "base-database-service-26ai-rac" -> TechnologyType.DB26AIRAC;
 			default -> throw new TestPilotException(CREATE_DATABASE_MISSING_DB_TYPE);
 		};
 	}
