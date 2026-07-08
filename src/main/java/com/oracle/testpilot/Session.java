@@ -152,8 +152,8 @@ public class Session {
 								case "autonomous-transaction-processing-serverless-26ai":
 								case "base-database-service-19c":
 								case "base-database-service-21c":
-								case "base-database-service-23ai":
 								case "base-database-service-26ai":
+								case "base-database-service-26ai-rac":
 									break;
 
 								default:
@@ -162,7 +162,7 @@ public class Session {
 						}
 						catch (IllegalArgumentException iae) {
 							throw new TestPilotException(WRONG_OCI_SERVICE_PARAMETER,
-									new IllegalArgumentException("--oci-service must be either autonomous-transaction-processing-serverless-19c, autonomous-transaction-processing-serverless-26ai, base-database-service-19c, base-database-service-21c, base-database-service-26ai, or base-database-service-23ai"));
+									new IllegalArgumentException("--oci-service must be either autonomous-transaction-processing-serverless-19c, autonomous-transaction-processing-serverless-26ai, base-database-service-19c, base-database-service-21c, base-database-service-26ai, or base-database-service-26ai-rac"));
 						}
 					}
 					else {
@@ -240,12 +240,12 @@ public class Session {
 				Action:
 				--create: to provision the requested Oracle Cloud Infrastructure service to test
 				    Options:
-				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-26ai)
+				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-26ai, base-database-service-26airac)
 				    --user <user>              user name to be used (if several, then comma separated list without any space)
 				    --connection-string-format requested connection string format (easy-connect*, or tns)
 				--delete: to de-provision the Oracle Cloud Infrastructure service
 				    Options:
-				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-26ai)
+				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-26ai, base-database-service-26airac)
 				    --user <user>              user name to be used (if several, then comma separated list without any space)
 				--skip-testing
 				    Options:
@@ -342,7 +342,6 @@ public class Session {
 							break;
 							case TechnologyType.DB19C:
 							case TechnologyType.DB21C:
-							case TechnologyType.DB23AI:
 							case TechnologyType.DB26AI: {
 								Database database = new JSON<>(Database.class).parse(jsonInformation);
 								database = new JSON<>(Database.class).parse(database.getDatabase());
@@ -626,7 +625,6 @@ public class Session {
 			case "autonomous-transaction-processing-serverless", "autonomous-transaction-processing-serverless-26ai" -> TechnologyType.AUTONOMOUS26AI;
 			case "base-database-service-19c" -> TechnologyType.DB19C;
 			case "base-database-service-21c" -> TechnologyType.DB21C;
-			case "base-database-service-23ai" -> TechnologyType.DB23AI;
 			case "base-database-service-26ai" -> TechnologyType.DB26AI;
 			case "base-database-service-26ai-rac" -> TechnologyType.DB26AIRAC;
 			default -> throw new TestPilotException(CREATE_DATABASE_MISSING_DB_TYPE);
