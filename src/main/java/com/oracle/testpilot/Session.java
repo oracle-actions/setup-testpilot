@@ -339,9 +339,22 @@ public class Session {
 								database = new JSON<>(Database.class).parse(database.getDatabase());
 
 								final String connectionString = connectionStringFormat == ConnectionStringFormat.TNS ?
-										String.format("(description=(address=(protocol=tcp)(port=1521)(host=%s))(connect_data=(service_name=%s)))", database.getHost(), database.getService())
+										String.format("(description=(retry_count=3)(retry_delay=1)(address=(protocol=tcp)(port=1521)(host=%s))(connect_data=(service_name=%s)))", database.getHost(), database.getService())
 										:
-										String.format("%s:1521/%s", database.getHost(), database.getService());
+										String.format("%s:1521/%s?retry_count=3&retry_delay=1", database.getHost(), database.getService());
+
+								writeDatabaseInformationToGitHubOutput(database, connectionString);
+							}
+							break;
+							case TechnologyType.DB26AIRAC: {
+								Database database = new JSON<>(Database.class).parse(jsonInformation);
+								database = new JSON<>(Database.class).parse(database.getDatabase());
+
+								// using scan listener as the host
+								final String connectionString = connectionStringFormat == ConnectionStringFormat.TNS ?
+										String.format("(description=(connect_timeout=5)(transport_connect_timeout=3)(retry_count=3)(retry_delay=1)(address_list=(load_balance=on)(address=(protocol=tcp)(host=%s)(port=1521)))(connect_data=(service_name=%s)))", database.getHost(), database.getService())
+										:
+										String.format("%s:1521/%s?retry_count=3&retry_delay=1", database.getHost(), database.getService());
 
 								writeDatabaseInformationToGitHubOutput(database, connectionString);
 							}
@@ -606,6 +619,7 @@ public class Session {
 			case "base-database-service-21c" -> TechnologyType.DB21C;
 			case "base-database-service-23ai" -> TechnologyType.DB23AI;
 			case "base-database-service-26ai" -> TechnologyType.DB26AI;
+			case "base-database-service-26ai-rac" -> TechnologyType.DB26AIRAC;
 			default -> throw new TestPilotException(CREATE_DATABASE_MISSING_DB_TYPE);
 		};
 	}
