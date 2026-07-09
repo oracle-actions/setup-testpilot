@@ -58,6 +58,8 @@ public class Session {
 
 	private ConnectionStringFormat connectionStringFormat;
 
+	private boolean useDoubleQuotesForConnectionStringSuffix;
+
 	private String prefixList;
 	private String owner;
 	private String repository;
@@ -133,11 +135,13 @@ public class Session {
 						users = args[++i];
 
 						if(users.length() > MAX_USERS_LENGTH) {
-							throw new TestPilotException(USER_PARAMETER_TOO_LONG, new IllegalArgumentException("Value for --user parameter is too long, maximum length: "+MAX_USERS_LENGTH));
+							throw new TestPilotException(USER_PARAMETER_TOO_LONG,
+									new IllegalArgumentException("Value for --user parameter is too long, maximum length: "+MAX_USERS_LENGTH));
 						}
 					}
 					else {
-						throw new TestPilotException(USER_MISSING_PARAMETER, new IllegalArgumentException("Missing value for --user parameter"));
+						throw new TestPilotException(USER_MISSING_PARAMETER,
+								new IllegalArgumentException("Missing value for --user parameter"));
 					}
 					break;
 
@@ -181,7 +185,20 @@ public class Session {
 						}
 					}
 					else {
-						throw new TestPilotException(CONNECTION_STRING_FORMAT_MISSING_PARAMETER, new IllegalArgumentException("Missing value for --connection-string-format parameter"));
+						throw new TestPilotException(CONNECTION_STRING_FORMAT_MISSING_PARAMETER,
+								new IllegalArgumentException("Missing value for --connection-string-format parameter"));
+					}
+					break;
+
+				case "--surround-connection-string-with-double-quotes":
+					if (i + 1 < args.length) {
+						final String temp = args[++i];
+
+						useDoubleQuotesForConnectionStringSuffix = "true".equalsIgnoreCase(temp);
+					}
+					else {
+						throw new TestPilotException(SURROUND_CONNECTION_STRING_WITH_DOUBLE_QUOTES_MISSING_PARAMETER,
+								new IllegalArgumentException("Missing value for --surround-connection-string-with-double-quotes parameter"));
 					}
 					break;
 
@@ -194,7 +211,8 @@ public class Session {
 						prefixList = args[++i];
 					}
 					else {
-						throw new TestPilotException(PREFIX_LIST_MISSING_PARAMETER, new IllegalArgumentException("Missing value for --prefix-list parameter"));
+						throw new TestPilotException(PREFIX_LIST_MISSING_PARAMETER,
+								new IllegalArgumentException("Missing value for --prefix-list parameter"));
 					}
 					break;
 
@@ -203,7 +221,8 @@ public class Session {
 						owner = args[++i];
 					}
 					else {
-						throw new TestPilotException(OWNER_MISSING_PARAMETER, new IllegalArgumentException("Missing value for --owner parameter"));
+						throw new TestPilotException(OWNER_MISSING_PARAMETER,
+								new IllegalArgumentException("Missing value for --owner parameter"));
 					}
 					break;
 
@@ -240,12 +259,13 @@ public class Session {
 				Action:
 				--create: to provision the requested Oracle Cloud Infrastructure service to test
 				    Options:
-				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-26ai, base-database-service-26airac)
+				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless-26ai, autonomous-transaction-processing-serverless-19c, base-database-service-26ai, base-database-service-26ai-rac, base-database-service-19c, base-database-service-21c)
 				    --user <user>              user name to be used (if several, then comma separated list without any space)
 				    --connection-string-format requested connection string format (easy-connect*, or tns)
+				    --surround-connection-string-with-double-quotes tells if the connection string must be surrounded with double quotes (false*, or true)
 				--delete: to de-provision the Oracle Cloud Infrastructure service
 				    Options:
-				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless, base-database-service-19c, base-database-service-21c, base-database-service-26ai, base-database-service-26airac)
+				    --oci-service <value>      OCI service type (autonomous-transaction-processing-serverless-26ai, autonomous-transaction-processing-serverless-19c, base-database-service-26ai, base-database-service-26ai-rac, base-database-service-19c, base-database-service-21c)
 				    --user <user>              user name to be used (if several, then comma separated list without any space)
 				--skip-testing
 				    Options:
@@ -438,14 +458,25 @@ public class Session {
 		if (githubOutput != null) {
 			try (PrintWriter out = new PrintWriter(new BufferedOutputStream(new FileOutputStream(githubOutput, true)))) {
 				System.out.printf("::add-mask::%s%n", database.getPassword());
-				out.printf("""
+				if(useDoubleQuotesForConnectionStringSuffix){
+					out.printf("""
 								database_host=%s
 								database_service=%s
 								database_password=%s
 								database_version=%s
 								connection_string_suffix="%s"%n""",
-						database.getHost(), database.getService(), database.getPassword(), database.getVersion(),
-						connectionString);
+							database.getHost(), database.getService(), database.getPassword(), database.getVersion(),
+							connectionString);
+				} else {
+					out.printf("""
+								database_host=%s
+								database_service=%s
+								database_password=%s
+								database_version=%s
+								connection_string_suffix=%s%n""",
+							database.getHost(), database.getService(), database.getPassword(), database.getVersion(),
+							connectionString);
+				}
 			}
 		}
 	}

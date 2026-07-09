@@ -9,7 +9,7 @@ branding:
 inputs:
   version:
     description: 'The version to use.'
-    default: 'v1.0.26'
+    default: 'v1.0.27'
     required: true
   action:
     description: 'The action to run (create*, delete, skip-testing).'
@@ -25,6 +25,10 @@ inputs:
   connection-string-format:
     description: 'The resulting connection string format (easy-connect*, tns).'
     default: 'easy-connect'
+    required: false
+  surround-connection-string-with-double-quotes:
+    description: 'If the connection string must be surrounded by double quotes (false*, true).'
+    default: 'false'
     required: false
   prefix_list:
     description: 'A comma separated list of file(s) or folder(s) that if changed should not trigger any test (example: folder containing documentation).'
@@ -79,5 +83,7 @@ runs:
         JOBID: ${{ job.check_run_id }}
       run: |
         ${GITHUB_ACTION_PATH}/setup-testpilot --${{ inputs.action }} \
-        --user "${{ inputs.user }}" --oci-service "${{ inputs.oci-service }}" --connection-string-format "${{ inputs.connection-string-format }}"
+        --user "${{ inputs.user }}" --oci-service "${{ inputs.oci-service }}" \
+        --connection-string-format "${{ inputs.connection-string-format }}" \
+        --surround-connection-string-with-double-quotes "${{ inputs.surround-connection-string-with-double-quotes }}"
 

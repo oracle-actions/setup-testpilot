@@ -25,6 +25,7 @@ public class TestPilotException extends RuntimeException {
 	public static final int CREATE_DATABASE_MISSING_DB_TYPE = 12;
 	public static final int SKIP_TESTING_MISSING_OWNER = 13;
 	public static final int SKIP_TESTING_MISSING_REPOSITORY = 14;
+	public static final int SURROUND_CONNECTION_STRING_WITH_DOUBLE_QUOTES_MISSING_PARAMETER = 15;
 	public static final int SKIP_TESTING_MISSING_PREFIX_LIST = 16;
 	public static final int SKIP_TESTING_WRONG_URI = 17;
 	public static final int SKIP_TESTING_WRONG_REST_CALL = 18;
