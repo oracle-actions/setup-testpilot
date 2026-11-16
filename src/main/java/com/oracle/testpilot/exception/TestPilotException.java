@@ -54,6 +54,12 @@ public class TestPilotException extends RuntimeException {
 	public static final int RETRIEVE_REGISTRATION_TOKEN = 42;
 	public static final int CREATE_REGISTRATION_TOKEN_REST_ENDPOINT_ISSUE = 43;
 	public static final int FULLY_QUALIFIED_NAMES_MISSING_PARAMETER = 44;
+	public static final int GITHUB_OUTPUT_MISSING_ENV = 45;
+	public static final int RUNID_MISSING_ENV = 46;
+	public static final int JOBID_MISSING_ENV = 47;
+	public static final int API_HOST_MISSING_ENV = 48;
+	public static final int CLIENT_ID_MISSING_ENV = 49;
+	public static final int TOKEN_MISSING_ENV = 50;
 
 	private final int errorCode;
 

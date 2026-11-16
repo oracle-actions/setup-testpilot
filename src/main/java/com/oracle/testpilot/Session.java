@@ -72,6 +72,10 @@ public class Session {
 		// in a job. For example, /home/runner/work/_temp/_runner_file_commands/set_output_a50ef383-b063-46d9-9157-57953fc9f3f0.
 		// see https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-output-parameter
 		githubOutput = System.getenv("GITHUB_OUTPUT");
+		if(githubOutput == null || githubOutput.isEmpty()) {
+			throw new TestPilotException( GITHUB_OUTPUT_MISSING_ENV,
+					new IllegalStateException("GITHUB_OUTPUT environment variable is not set") );
+		}
 		// ---------------------------------------------------------------------------------------------------------------------
 		// RUNID:
 		// Variable initialized by this GitHub Action from within its action.yml file.
@@ -82,6 +86,10 @@ public class Session {
 		// number does not change if you re-run the workflow run.
 		// see https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#github-context
 		runID = System.getenv("RUNID");
+		if(runID == null || runID.isEmpty()) {
+			throw new TestPilotException( RUNID_MISSING_ENV,
+					new IllegalStateException("RUNID environment variable is not set") );
+		}
 		// ---------------------------------------------------------------------------------------------------------------------
 		// JOBID:
 		// The check run ID of the current job.
@@ -341,6 +349,9 @@ public class Session {
 	}
 
     private void createRegistrationToken() {
+		if(apiHOST == null || apiHOST.isEmpty()) {
+			throw new TestPilotException( API_HOST_MISSING_ENV );
+		}
 		if(githubToken == null || githubToken.isEmpty()) {
 			throw new TestPilotException(CREATE_REGISTRATION_TOKEN_MISSING_TOKEN);
 		}
@@ -474,6 +485,18 @@ public class Session {
     }
 
 	private void create() {
+		if(apiHOST == null || apiHOST.isEmpty()) {
+			throw new TestPilotException( API_HOST_MISSING_ENV );
+		}
+		if(jobID == null || jobID.isEmpty()) {
+			throw new TestPilotException( JOBID_MISSING_ENV );
+		}
+		if(clientId == null || clientId.isEmpty()) {
+			throw new TestPilotException(CLIENT_ID_MISSING_ENV);
+		}
+		if(token == null || token.isEmpty()) {
+			throw new TestPilotException(TOKEN_MISSING_ENV);
+		}
 		if (users == null || users.isEmpty()) {
 			throw new TestPilotException(CREATE_DATABASE_MISSING_USER_NAME);
 		}
@@ -668,6 +691,18 @@ public class Session {
 	}
 
 	private void delete() {
+		if(apiHOST == null || apiHOST.isEmpty()) {
+			throw new TestPilotException( API_HOST_MISSING_ENV );
+		}
+		if(jobID == null || jobID.isEmpty()) {
+			throw new TestPilotException( JOBID_MISSING_ENV );
+		}
+		if(clientId == null || clientId.isEmpty()) {
+			throw new TestPilotException(CLIENT_ID_MISSING_ENV);
+		}
+		if(token == null || token.isEmpty()) {
+			throw new TestPilotException(TOKEN_MISSING_ENV);
+		}
 		if (users == null || users.isEmpty()) {
 			throw new TestPilotException(DROP_DATABASE_MISSING_USER_NAME);
 		}
