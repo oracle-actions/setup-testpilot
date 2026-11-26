@@ -18,6 +18,10 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 
@@ -63,6 +67,7 @@ public class Session {
 	private String repository;
 	private String pullRequestNumber;
 	private String githubToken;
+	private String initSQLScriptPath;
 
 	public Session(final String[] args) {
 		// ---------------------------------------------------------------------------------------------------------------------
@@ -114,9 +119,16 @@ public class Session {
 		// OAuth2 client id to use for accessing the private internal REST API endpoints to create and delete a user schema.
 		// This environment variable is not exposed (read or write) to end users. It is also masked from standard GitHub Action log output.
 		clientId = System.getenv("TESTPILOT_CLIENT_ID");
+
 		analyzeCommandLineParameters(args);
 	}
 
+	/**
+	 * Parse command line parameters.
+	 * Usage is displayed in the case an argument is unknown.
+	 *
+	 * @param args array containing CLI parameters
+	 */
 	private void analyzeCommandLineParameters(final String[] args) {
 		for (int i = 0; i < args.length; i++) {
 			final String arg = args[i].toLowerCase();
@@ -284,6 +296,20 @@ public class Session {
 					}
 					else {
 						throw new TestPilotException(PULL_REQUEST_NUMBER_MISSING_PARAMETER, new IllegalArgumentException("Missing value for --pull-request-number parameter"));
+					}
+					break;
+
+				case "--init-sql-script-path":
+					if (i + 1 < args.length) {
+						initSQLScriptPath = args[++i];
+
+						// check if file exists, not following links
+						if(!Files.exists(Path.of(initSQLScriptPath), LinkOption.NOFOLLOW_LINKS)) {
+							throw new TestPilotException(INIT_SQL_SCRIPT_PATH_NOT_FOUND, new IllegalArgumentException("Initialization SQL script \""+initSQLScriptPath+"\" not found!"));
+						}
+					}
+					else {
+						throw new TestPilotException(INIT_SQL_SCRIPT_PATH_MISSING_PARAMETER, new IllegalArgumentException("Missing value for --init-sql-script-path parameter"));
 					}
 					break;
 
@@ -527,8 +553,8 @@ public class Session {
 								"User-Agent", "setup-testpilot/" + Main.VERSION,
 								"Authorization", "Bearer " + token)
 						.POST(HttpRequest.BodyPublishers.ofString(
-								String.format("{\"runID\":\"%s\",\"jobID\":\"%s\",\"type\":\"%s\",\"user\":[%s]}",
-										runID, jobID, type, buildUserList(users,true, false))
+								String.format("{\"runID\":\"%s\",\"jobID\":\"%s\",\"type\":\"%s\",\"user\":[%s],\"init-sql-script\":%s}",
+										runID, jobID, type, buildUserList(users,true, false), formatInitSQLScript())
 						))
 						.build();
 
@@ -656,6 +682,113 @@ public class Session {
 			throw new TestPilotException(WRONG_MAIN_CONTROLLER_REST_CALL, e);
 		}
 	}
+
+	private static int countQuotes(final String s) {
+		int count = 0;
+		int dashes = 0;
+		for (int i = 0; i < s.length(); i++) {
+			switch( s.charAt(i) )
+			{
+				case '-':
+					dashes++;
+					// inside one line comment
+					if(dashes == 2) {
+						while(i < s.length() && s.charAt(i) != '\n') { i++; }
+						dashes = 0;
+					}
+					break;
+
+				case '\'': count++;
+					break;
+			}
+		}
+		return count;
+	}
+
+	private static void validateAuthorizedStatementType(final String sql) {
+		for (String sqlLine : sql.split("\\n")) {
+			final String s = sqlLine.trim();
+			// single line comments or empty
+			if (s.isEmpty() || s.startsWith("--")) continue;
+
+			if (s.startsWith("select ")) return;
+			if (s.startsWith("insert into ")) return;
+			if (s.startsWith("update ")) return;
+			if (s.startsWith("delete ")) return;
+			if (s.startsWith("merge into ")) return;
+			if (s.startsWith("create table ")) return;
+			if (s.startsWith("create json collection table ")) return;
+			if (s.startsWith("create immutable table ")) return;
+			if (s.startsWith("create blockchain table ")) return;
+			if (s.startsWith("create index ")) return;
+			if (s.startsWith("create view ")) return;
+			if (s.startsWith("create materialized view ")) return;
+			if (s.startsWith("commit")) return;
+			if (s.startsWith("declare")) return;
+			if (s.startsWith("begin")) return;
+
+			break;
+		}
+
+		if(sql.trim().isEmpty()) return;
+
+		throw new TestPilotException(UNAUTHORIZED_SQL_STATEMENT_IN_INIT_SQL_SCRIPT,
+				new IllegalArgumentException("Following SQL statement is not authorized for SQL initialization script:\n [" + sql+"]"));
+	}
+
+	private String formatInitSQLScript() {
+        if(initSQLScriptPath == null) {
+			return "null";
+		}
+
+		try {
+			final long fileSize = Files.size(Path.of(initSQLScriptPath));
+			if(fileSize > 32611L) {
+				throw new TestPilotException(INIT_SQL_SCRIPT_PATH_TOO_BIG, new IllegalArgumentException("Initialization SQL script ("+fileSize+" bytes) is larger than 32,611 bytes!"));
+			}
+			final String sqlContent = Files.readString(Path.of(initSQLScriptPath), StandardCharsets.UTF_8).replaceAll("\\r", "").replaceAll("\\t", "\\\\\t").replaceAll("\"", "\\\\\"");
+
+			// validate and format the SQL script
+			final StringBuilder sql = new StringBuilder("\"");
+
+			// used to properly manage SQL strings containing ';' char
+			int countedQuotes = 0;
+			String s = "";
+
+			for (String statement : sqlContent.split(";\\n/|;")) {
+				if (countedQuotes == 0) {
+					s = statement.trim();
+				} else {
+					countedQuotes = 0;
+					s += ";" + statement.trim();
+				}
+
+				countedQuotes += countQuotes(s);
+				if(countedQuotes % 2 == 1) {
+					continue;
+				} else {
+					countedQuotes = 0;
+				}
+
+				validateAuthorizedStatementType(s.toLowerCase());
+
+				sql.append(s);
+
+				if (statement.trim().toLowerCase().endsWith("end")) {
+					// PL/SQL anonymous block
+					sql.append(";\n/\n");
+				} else {
+					sql.append(';');
+				}
+			}
+
+			sql.append("\"");
+
+			return sql.toString().replaceAll("\\n", "\\\\n");
+		} catch (IOException e) {
+			throw new TestPilotException(INIT_SQL_SCRIPT_PATH_IO_ERROR, e);
+        }
+    }
 
 	private void writeDatabaseInformationToGitHubOutput(Database database, String connectionString, String users, String protocol, int port, String hostname, String serviceName) throws FileNotFoundException {
 		if (githubOutput != null) {

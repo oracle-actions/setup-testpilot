@@ -2,7 +2,7 @@
 :linkattrs:
 :project-owner: oracle-actions
 :project-name:  setup-testpilot
-:project-tag:   v1.0.32
+:project-tag:   v1.0.33
 
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -38,6 +38,7 @@ Following inputs may be used as `step.with` keys:
 | oci-service |          | autonomous-transaction-processing-serverless-26ai            | A valid Oracle Cloud Infrastructure service to be tested.
 Valid OCI service are: `autonomous-transaction-processing-serverless-19c`, `autonomous-transaction-processing-serverless-26ai`, `base-database-service-19c`, `base-database-service-21c`, `base-database-service-26ai`, and `base-database-service-26ai-rac`.
 | user     |          |                 | The database username to be used for database creation. If multiple users (up to 10) are required then enter a comma-separated list of usernames (no space). Limit usernames to 118 chars maximum.  Accepted chars are: upper case letters, lower case letters, digits, colon, hyphen, underscore, and dot.
+| init-sql-script-path | | | A valid path to an initialization SQL script to run after each test user creation to create table(s), view(s), ... and insert data. Maximum size for the script is 32,611 bytes.
 | connection-string-format | | easy-connect | The resulting connection string format: `easy-connect` or `tns`.
 | surround-connection-string-with-double-quotes | | false | If the connection string must be surrounded by double quotes: `true` or `false`.
 | fully-qualified-names | | false | If the `database_host` and `database_service` output parameters must return a fully qualified hostname and service name (including the domain name): `true` or `false`.

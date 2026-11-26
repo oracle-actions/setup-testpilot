@@ -9,7 +9,7 @@ branding:
 inputs:
   version:
     description: 'The version to use.'
-    default: 'v1.0.32'
+    default: 'v1.0.33'
     required: true
   action:
     description: 'The action to run (create*, delete, skip-testing).'
@@ -43,6 +43,10 @@ inputs:
     required: false
   target-repository:
     description: 'The target repository for registration token creation.'
+    default: ''
+    required: false
+  init-sql-script-path:
+    description: 'The fully qualified path for a SQL script to run when initializing a database.'
     default: ''
     required: false
 
@@ -107,7 +111,8 @@ runs:
         --user "${{ inputs.user }}" --oci-service "${{ inputs.oci-service }}" \
         --connection-string-format "${{ inputs.connection-string-format }}" \
         --surround-connection-string-with-double-quotes "${{ inputs.surround-connection-string-with-double-quotes }}" \
-        --fully-qualified-names "${{ inputs.fully-qualified-names }}"
+        --fully-qualified-names "${{ inputs.fully-qualified-names }}" \
+        --init-sql-script-path "${{ inputs.init-sql-script-path }}"
 
     - name: 'Delete'
       id: delete
