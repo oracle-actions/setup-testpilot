@@ -60,6 +60,11 @@ public class TestPilotException extends RuntimeException {
 	public static final int API_HOST_MISSING_ENV = 48;
 	public static final int CLIENT_ID_MISSING_ENV = 49;
 	public static final int TOKEN_MISSING_ENV = 50;
+	public static final int INIT_SQL_SCRIPT_PATH_MISSING_PARAMETER = 51;
+	public static final int INIT_SQL_SCRIPT_PATH_NOT_FOUND = 52;
+	public static final int INIT_SQL_SCRIPT_PATH_IO_ERROR = 53;
+	public static final int INIT_SQL_SCRIPT_PATH_TOO_BIG = 54;
+	public static final int UNAUTHORIZED_SQL_STATEMENT_IN_INIT_SQL_SCRIPT = 55;
 
 	private final int errorCode;
 
